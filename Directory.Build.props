@@ -1,0 +1,12 @@
+<Project>
+  <PropertyGroup>
+    <Authors>Alirio Castro</Authors>
+    <Company>Labotech Software</Company>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <PackageIcon>erp-icon.png</PackageIcon>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Include="$(MSBuildThisFileDirectory)erp-icon.png" Pack="true" PackagePath="" />
+  </ItemGroup>
+</Project>

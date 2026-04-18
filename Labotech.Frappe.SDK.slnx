@@ -1,0 +1,7 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Labotech.Frappe.Core/Labotech.Frappe.Core.csproj" />
+    <Project Path="src/Labotech.Frappe.Connector/Labotech.Frappe.Connector.csproj" />
+    <Project Path="src/Labotech.Frappe.Data/Labotech.Frappe.Data.csproj" />
+  </Folder>
+</Solution>
