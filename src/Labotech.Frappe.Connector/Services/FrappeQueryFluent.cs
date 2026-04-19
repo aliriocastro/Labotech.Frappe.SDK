@@ -2,13 +2,15 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using Labotech.Frappe.Connector.Contracts;
 using Labotech.Frappe.Connector.Core;
+using Labotech.Frappe.Core;
 
 namespace Labotech.Frappe.Connector.Services
 {
-    public partial class FrappeQueryFluent<T> : IFrappeQueryFluent<T> where T : IFrappeEntity
+    public sealed partial class FrappeQueryFluent<T> : IFrappeQueryFluent<T> where T : IFrappeEntity
     {
         private readonly IFrappeService _frappeService;
 
@@ -211,7 +213,7 @@ namespace Labotech.Frappe.Connector.Services
         }
 
 
-        public async Task<IEnumerable<T>> FetchAsync()
+        public async Task<IEnumerable<T>> FetchAsync(CancellationToken cancellationToken = default)
         {
             return await _frappeService.GetListAsync<T>(
                 DocType,
@@ -220,25 +222,26 @@ namespace Labotech.Frappe.Connector.Services
                 Parent,
                 OrderByAsString(),
                 SkipValue,
-                TakeValue);
+                TakeValue,
+                cancellationToken);
         }
 
-        private string FieldsAsString()
+        internal string FieldsAsString()
         {
-            if (IncludeDefaultFields)
-                Fields.AddRange(_defaultFields);
+            var fields = IncludeDefaultFields
+                ? Fields.Concat(_defaultFields).Distinct()
+                : Fields.Distinct();
 
-            return JsonSerializer.Serialize(Fields.Distinct(), DefaultJsonSerializerSettings);
+            return JsonSerializer.Serialize(fields, DefaultJsonSerializerSettings);
         }
 
-        private string OrderByAsString()
+        internal string OrderByAsString()
         {
-            // They way ERPNext interprets order_by is completely different.
-            // Ej. order_by=field1 ASC, field2 ASC
-            return OrderBy.Count > 1 ? string.Join(", ", OrderBy.ToArray()) : string.Empty;
+            // ERPNext expects: order_by=field1 ASC, field2 ASC
+            return OrderBy.Count == 0 ? string.Empty : string.Join(", ", OrderBy);
         }
 
-        private string ConditionsAsString()
+        internal string ConditionsAsString()
         {
             if (Conditions.Count == 0)
                 return string.Empty;
@@ -270,9 +273,11 @@ namespace Labotech.Frappe.Connector.Services
 
         }
 
-        public JsonSerializerOptions DefaultJsonSerializerSettings => new JsonSerializerOptions
+        private static readonly JsonSerializerOptions _defaultJsonSerializerSettings = new JsonSerializerOptions
         {
             Converters = { new HtmlEscapingConverter() }
         };
+
+        public JsonSerializerOptions DefaultJsonSerializerSettings => _defaultJsonSerializerSettings;
     }
 }

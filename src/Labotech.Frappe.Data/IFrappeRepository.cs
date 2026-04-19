@@ -1,7 +1,8 @@
-﻿using Labotech.Frappe.Connector.Core;
+using Labotech.Frappe.Core;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 
@@ -13,85 +14,92 @@ namespace Labotech.Frappe.Data
         /// <summary>
         /// Get entity entry by its name
         /// </summary>
-        /// <param name="name"></param>
-        /// <returns></returns>
-        Task<TEntity> GetByIdAsync(string name);
+        Task<TEntity> GetByIdAsync(string name, CancellationToken cancellationToken = default);
 
-         /// <summary>
-        /// Get entity entry by its name
+        /// <summary>
+        /// Get entity entry by its name (synchronous)
         /// </summary>
-        /// <param name="name"></param>
-        /// <returns></returns>
         TEntity GetById(string name);
 
         /// <summary>
-        /// Get entity entries by its names
+        /// Get entity entries by their names
         /// </summary>
-        /// <param name="name"></param>
-        /// <returns></returns>
-        Task<IEnumerable<TEntity>> GetByIdsAsync(IEnumerable<string> name);
+        Task<IEnumerable<TEntity>> GetByIdsAsync(IEnumerable<string> names, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Gets all entity entries with an optional query shaper
+        /// </summary>
+        Task<IEnumerable<TEntity>> GetAllAsync(Func<IQueryable<TEntity>, IQueryable<TEntity>> query, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Gets all entity entries
         /// </summary>
-        /// <param name="query"></param>
-        /// <returns></returns>
-        Task<IEnumerable<TEntity>> GetAllAsync(Func<IQueryable<TEntity>, IQueryable<TEntity>> query);
+        Task<IEnumerable<TEntity>> GetAllAsync(CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// Insert entity entry
+        /// Projects all entity entries through the supplied query.
         /// </summary>
-        /// <param name="entity"></param>
-        /// <returns></returns>
-        Task<TEntity> InsertAsync(TEntity entity);
+        Task<IEnumerable<TResult>> GetAllAsync<TResult>(Func<IQueryable<TEntity>, IQueryable<TResult>> func, CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// Insert entity entries
+        /// Insert entity entry through the Frappe API.
         /// </summary>
-        /// <param name="entities"></param>
-        /// <returns></returns>
-        Task InsertAsync(IEnumerable<TEntity> entities);
+        Task<TEntity> InsertAsync(TEntity entity, CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// Update entity entry
+        /// Insert entity entries through the Frappe API.
         /// </summary>
-        /// <param name="entity"></param>
-        /// <returns></returns>
-        Task UpdateAsync<TEntityModel>(TEntityModel entity) where TEntityModel : IFrappeBaseEntity;
+        Task InsertAsync(IEnumerable<TEntity> entities, CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// Update entity entries 
+        /// Update entity entry through the Frappe API.
         /// </summary>
-        /// <param name="entities"></param>
-        /// <returns></returns>
-        Task UpdateAsync<TEntityModel>(IEnumerable<TEntityModel> entities) where TEntityModel : IFrappeBaseEntity;
+        Task UpdateAsync<TEntityModel>(TEntityModel entity, CancellationToken cancellationToken = default) where TEntityModel : IFrappeBaseEntity;
 
         /// <summary>
-        /// Delete the entity entry
+        /// Update entity entries through the Frappe API.
         /// </summary>
-        /// <param name="entity"></param>
-        /// <returns></returns>
-        Task DeleteAsync<TEntityModel>(TEntityModel entity) where TEntityModel : IFrappeBaseEntity;
+        [Obsolete("Bulk update is not implemented in IFrappeService yet. Iterate and call UpdateAsync(entity) instead until BulkUpdateAsync ships.", error: false)]
+        Task UpdateAsync<TEntityModel>(IEnumerable<TEntityModel> entities, CancellationToken cancellationToken = default) where TEntityModel : IFrappeBaseEntity;
 
         /// <summary>
-        /// Delete the entity entry by its name
+        /// Delete the entity entry through the Frappe API.
         /// </summary>
-        /// <param name="entity"></param>
-        /// <returns></returns>
-        Task DeleteByNameAsync(string name);
+        Task DeleteAsync<TEntityModel>(TEntityModel entity, CancellationToken cancellationToken = default) where TEntityModel : IFrappeBaseEntity;
 
         /// <summary>
-        /// Delete entity entries
+        /// Delete the entity entry by its name through the Frappe API.
         /// </summary>
-        /// <param name="entities"></param>
-        /// <returns></returns>
-        Task DeleteAsync<TEntityModel>(IEnumerable<TEntityModel> entities) where TEntityModel : IFrappeBaseEntity;
-        Task<IEnumerable<TEntity>> GetAllAsync();
-        Task InsertOnDatabaseAsync(TEntity entity);
-        Task InsertManyOnDatabaseAsync(IEnumerable<TEntity> entities);
-        Task<IEnumerable<TResult>> GetAllAsync<TResult>(Func<IQueryable<TEntity>, IQueryable<TResult>> func);
+        Task DeleteByNameAsync(string name, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Delete entity entries through the Frappe API.
+        /// </summary>
+        Task DeleteAsync<TEntityModel>(IEnumerable<TEntityModel> entities, CancellationToken cancellationToken = default) where TEntityModel : IFrappeBaseEntity;
 
         IQueryable<TEntity> Table { get; }
 
+    }
+
+    /// <summary>
+    /// Direct database access for an entity. Bypasses the Frappe HTTP API entirely.
+    /// <para>
+    /// <b>Warning:</b> implementations write straight to the underlying database and therefore
+    /// skip Frappe validation, document hooks, permissions, and audit trail. Use only for trusted,
+    /// bulk-import scenarios where the caller accepts responsibility for data integrity.
+    /// </para>
+    /// </summary>
+    public interface IFrappeDirectDbRepository<TEntity>
+        where TEntity : class, IFrappeBaseEntity, new()
+    {
+        /// <summary>
+        /// Insert a single row directly into the database, bypassing Frappe.
+        /// </summary>
+        Task InsertOnDatabaseAsync(TEntity entity, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Bulk-copy entities directly into the database, bypassing Frappe.
+        /// </summary>
+        Task InsertManyOnDatabaseAsync(IEnumerable<TEntity> entities, CancellationToken cancellationToken = default);
     }
 }

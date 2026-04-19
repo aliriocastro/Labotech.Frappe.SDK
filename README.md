@@ -6,14 +6,14 @@
 
 | Package | Description |
 |---|---|
-| `Labotech.Frappe.Connector.Core` | Base interfaces (`IFrappeBaseEntity`, `IFrappeEntity`, `IFrappeChildEntity`) and shared JSON settings |
+| `Labotech.Frappe.Core` | Base interfaces (`IFrappeBaseEntity`, `IFrappeEntity`, `IFrappeChildEntity`) and shared JSON settings |
 | `Labotech.Frappe.Connector` | HTTP client, service layer, and fluent query builder for Frappe REST APIs |
 | `Labotech.Frappe.Data` | Repository pattern data access with linq2db for direct database queries |
 
 ### Dependency graph
 
 ```
-Labotech.Frappe.Connector.Core    (no internal dependencies)
+Labotech.Frappe.Core              (no internal dependencies)
         ↑
 Labotech.Frappe.Connector         (depends on Core)
         ↑
@@ -41,30 +41,51 @@ Go to [GitHub Settings → Tokens (classic)](https://github.com/settings/tokens)
 </configuration>
 ```
 
-### 3. Authenticate locally (once per machine)
+### 3. Authenticate locally
+
+The repo's `nuget.config` only declares sources — credentials are **never** stored there. Pick one of two ways to give NuGet your PAT:
+
+**Option A — `.env` + NuGet-native env var (preferred):**
+
+```bash
+cp .env.example .env
+# then edit .env and fill in your username + PAT
+```
+
+```bash
+# .env (gitignored)
+NuGetPackageSourceCredentials_github="Username=YOUR_GITHUB_USERNAME;Password=YOUR_GITHUB_PAT"
+```
+
+Load it with [direnv](https://direnv.net/), [dotenv-cli](https://github.com/motdotla/dotenv), or a quick `set -a && source .env && set +a` before `dotnet restore`. NuGet 5.3+ reads `NuGetPackageSourceCredentials_<sourceName>` natively — no config edits needed.
+
+**Option B — User-level NuGet config (outside the repo):**
 
 ```bash
 dotnet nuget update source github \
   --username aliriocastro \
   --password YOUR_GITHUB_PAT \
   --store-password-in-clear-text \
-  --configfile nuget.config
+  --configfile ~/.config/NuGet/NuGet.Config    # macOS / Linux
+  # --configfile %APPDATA%/NuGet/NuGet.Config  # Windows
 ```
 
-> **Important:** Do not commit the PAT to source control.
+This writes the PAT to your per-user config, not the repo.
+
+> **Never** point `--configfile` at the repo's `nuget.config` — it would stage a diff with your PAT in plaintext. `.env` and the user-level config both keep credentials out of the working tree.
 
 ### 4. Add the package reference
 
 ```xml
 <!-- Pick the package(s) you need -->
-<PackageReference Include="Labotech.Frappe.Connector.Core" Version="1.2.8" />
-<PackageReference Include="Labotech.Frappe.Connector" Version="1.2.8" />
-<PackageReference Include="Labotech.Frappe.Data" Version="1.2.8" />
+<PackageReference Include="Labotech.Frappe.Core" Version="2.0.0" />
+<PackageReference Include="Labotech.Frappe.Connector" Version="2.0.0" />
+<PackageReference Include="Labotech.Frappe.Data" Version="2.0.0" />
 ```
 
 ---
 
-## Labotech.Frappe.Connector.Core
+## Labotech.Frappe.Core
 
 Core interfaces, base entities, and shared contracts — the foundation of the SDK.
 
@@ -74,7 +95,6 @@ Core interfaces, base entities, and shared contracts — the foundation of the S
 | `IFrappeEntity` | Extends base with `DocStatus`, `Creation`, `Modified`, `Owner`, `Idx` |
 | `IFrappeChildEntity` | Extends entity with `Parent`, `ParentField`, `ParentType` for child tables |
 | `ERPNextJsonSerializationSettings` | Shared `System.Text.Json` serialization configuration |
-| `FrappeEntityExtensions` | Extension methods for entity JSON serialization/deserialization |
 
 ---
 
@@ -201,10 +221,10 @@ git add -A && git commit -m "feat: add retry policy"
 git push
 
 # 3. Tag with the new version
-git tag v1.3.0
+git tag v2.0.0
 
 # 4. Push the tag — publishes all 3 NuGet packages
-git push origin v1.3.0
+git push origin v2.0.0
 ```
 
 | Event | Workflow | Steps |
@@ -219,6 +239,37 @@ git push origin v1.3.0
 | `GITHUB_TOKEN` | Push packages (auto-provided by Actions) |
 
 No `PACKAGES_TOKEN` needed — all internal dependencies use `ProjectReference` at build time.
+
+## Changelog
+
+### 2.0.0 — Breaking changes & cleanup
+
+This is a major version bump cleaning up the SDK before broader adoption. **Breaking changes:**
+
+- **Package rename:** `Labotech.Frappe.Connector.Core` → **`Labotech.Frappe.Core`**. Update both your `PackageReference` and your `using` directives (`Labotech.Frappe.Connector.Core` → `Labotech.Frappe.Core`).
+- **`FrappeRepository<T>`:** the single-arg constructor `FrappeRepository(IDataContext)` was removed. The two-arg constructor now throws `ArgumentNullException` on null. `IFrappeService` is required for all mutations.
+- **`IFrappeDirectDbRepository<T>`:** `InsertOnDatabaseAsync` and `InsertManyOnDatabaseAsync` moved out of `IFrappeRepository<T>` into a new opt-in interface — these methods bypass Frappe's API and require explicit acknowledgement.
+- **`CancellationToken` on every async API:** all methods on `IFrappeHttpClient`, `IFrappeService`, `IFrappeQueryFluent<T>`, and `IFrappeRepository<T>` now accept `CancellationToken cancellationToken = default` as a final parameter. Source-compatible for unnamed-arg callers; explicit `CancellationToken.None` recommended.
+- **Sealed implementations:** `FrappeService`, `FrappeHttpClient`, `FrappeRepository<T>`, `FrappeQueryFluent<T>`, and `FrappeHttpRequestException` are now `sealed`. Extension via composition, not inheritance.
+- **Stub methods marked `[Obsolete]`:** the still-unimplemented members of `IFrappeService` (`GetDocByFilterAsync`, `GetDocByNameAsync`, `GetSingleValueAsync`, `BulkUpdateAsync`, `HasPermissionAsync`, `DeleteDocAsync`, `GetFieldValueAsync`) emit a compile-time warning when called. They still throw `NotImplementedException` at runtime.
+
+**Bug fixes:**
+
+- `FrappeQueryFluent.AddOrderBy(...)` with a single field is now actually sent to ERPNext (previously dropped silently due to a `Count > 1` check).
+- `FrappeQueryFluent.WithFields(...)` no longer mutates `Fields` on each `FetchAsync` invocation.
+- All `JsonDocument.Parse(...)` calls now use `using` for proper disposal — eliminates `ArrayPool` exhaustion under load.
+- All payload-serializing entry points (`InsertAsync`, `InsertManyAsync`, `DeferredInsertAsync`, `MethodPostAsJsonRequestAsync`, etc.) now use the centralized `ERPNextJsonSerializationSettings.Settings` — fixes silent property-shape mismatches over the wire.
+- Query strings are now built with `Uri.EscapeDataString` instead of round-tripping through `HttpUtility.UrlDecode`. Filter values containing `&`, `=`, or `#` no longer corrupt the request URL.
+- Traceback regex is now non-greedy with a 200ms timeout — eliminates ReDoS risk and incorrect concatenation across multiple `<pre>` blocks.
+
+**Internal cleanup:**
+
+- Removed unused/never-initialized `static ILogger` field in `HttpResponseMessageExtension`.
+- Removed unused `Microsoft.Extensions.Logging.Abstractions` package reference.
+- Renamed private `EnsureEntitesHasDoctype` → `EnsureEntitiesHaveDoctype`; now single-pass with `Any` instead of double-enumerating via `ToList().FindAll()`.
+- Renamed misleading `GetClonedDataContext()` → `GetDataContext()` (it never cloned).
+- Cached `Doctype` and `JsonSerializerOptions` on `FrappeQueryFluent<T>` to eliminate per-call allocations.
+- Added `tests/Labotech.Frappe.Connector.Tests` (xUnit) covering `FrappeQueryFluent` formatters and propagation, including regression tests for the bugs above.
 
 ## License
 

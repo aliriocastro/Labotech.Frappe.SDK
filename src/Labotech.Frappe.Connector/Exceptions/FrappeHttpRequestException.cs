@@ -6,7 +6,7 @@ namespace Labotech.Frappe.Connector.Exceptions
     /// <summary>
     /// Represents an exception that is thrown when an HTTP request to the Frappe API fails.
     /// </summary>
-    public class FrappeHttpRequestException : HttpRequestException
+    public sealed class FrappeHttpRequestException : HttpRequestException
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="FrappeHttpRequestException"/> class with the specified error message, Frappe traceback, and HTTP response.

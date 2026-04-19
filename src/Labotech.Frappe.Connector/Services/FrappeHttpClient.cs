@@ -1,18 +1,21 @@
-﻿using System;
+using System;
+using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
-using System.Web;
 using Labotech.Frappe.Connector.Contracts;
+using Labotech.Frappe.Core.Common;
 
 namespace Labotech.Frappe.Connector.Services
 {
-    public class FrappeHttpClient
-    : IFrappeHttpClient
+    public sealed class FrappeHttpClient
+        : IFrappeHttpClient
     {
 
         private readonly string _baseUrl;
@@ -22,214 +25,182 @@ namespace Labotech.Frappe.Connector.Services
         /// <summary>
         /// Initialization method providing HttpClient, base URL and access token in base64 format.
         /// </summary>
-        /// <param name="httpClient"></param>
-        /// <param name="baseUrl"></param>
-        /// <param name="base64Token"></param>
         public FrappeHttpClient(HttpClient httpClient, string baseUrl, string base64Token)
         {
             _baseUrl = baseUrl;
             _httpClient = httpClient;
-            
-            _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", base64Token);           
+
+            _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", base64Token);
         }
 
         /// <summary>
         /// Initialization method providing HttpClient, base URL, username and password.
         /// </summary>
-        /// <param name="httpClient"></param>
-        /// <param name="baseUrl"></param>
-        /// <param name="username"></param>
-        /// <param name="password"></param>
         public FrappeHttpClient(HttpClient httpClient, string baseUrl, string username, string password)
-        : this(httpClient, baseUrl, Convert.ToBase64String(Encoding.UTF8.GetBytes($"{username}:{password}"))) { }
+            : this(httpClient, baseUrl, Convert.ToBase64String(Encoding.UTF8.GetBytes($"{username}:{password}"))) { }
 
-        public async Task<HttpResponseMessage> GetResourcesRequestAsync(string docType,
+        public Task<HttpResponseMessage> GetResourcesRequestAsync(string docType,
             string fields,
             string filters,
             string parent,
             string orderBy,
             int limitStart,
-            int limitPageLength)
+            int limitPageLength,
+            CancellationToken cancellationToken = default)
         {
-            var baseUri = new UriBuilder($"{_baseUrl}/api/resource/{docType}");
+            var pairs = new List<(string key, string value)>();
+            if (fields != null) pairs.Add(("fields", fields));
+            if (limitPageLength != 0) pairs.Add(("limit_page_length", limitPageLength.ToString()));
+            if (limitStart != 0) pairs.Add(("limit_start", limitStart.ToString()));
+            if (filters != null) pairs.Add(("filters", filters));
+            if (parent != null) pairs.Add(("parent", parent));
+            if (orderBy != null) pairs.Add(("order_by", orderBy));
 
-            var query = HttpUtility.ParseQueryString(baseUri.Query);
-
-            if (fields != null) query["fields"] = fields;
-            if (limitPageLength != 0) query["limit_page_length"] = limitPageLength.ToString();
-            if (limitStart != 0) query["limit_start"] = limitStart.ToString();
-            if (filters != null) query["filters"] = filters;
-            if (parent != null) query["parent"] = parent;
-            if (orderBy != null) query["order_by"] = orderBy;
-
-            baseUri.Query = HttpUtility.UrlDecode(query.ToString());
-
-            return await _httpClient.GetAsync(baseUri.ToString());
+            var url = $"{_baseUrl}/api/resource/{docType}{BuildQueryString(pairs)}";
+            return _httpClient.GetAsync(url, cancellationToken);
         }
 
         /// <summary>
         /// Send a GET request to obtain a <paramref name="docType"/> resource identified by its <paramref name="docName"/>.
         /// </summary>
-        /// <param name="docType"></param>
-        /// <param name="docName"></param>
-        /// <returns></returns>
-        public async Task<HttpResponseMessage> GetResourceRequestAsync(string docType, string docName)
+        public Task<HttpResponseMessage> GetResourceRequestAsync(string docType, string docName, CancellationToken cancellationToken = default)
         {
-            var baseUri = new UriBuilder($"{_baseUrl}/api/resource/{docType}/{docName}");
-
-            return await _httpClient.GetAsync(baseUri.ToString());
+            var url = $"{_baseUrl}/api/resource/{docType}/{docName}";
+            return _httpClient.GetAsync(url, cancellationToken);
         }
 
         /// <summary>
         /// Send a POST request to INSERT a new <paramref name="docType"/> resource.
         /// </summary>
-        /// <param name="docType"></param>
-        /// <param name="content"></param>
-        /// <returns></returns>
-        public async Task<HttpResponseMessage> PostResourceRequestAsync(string docType, HttpContent content)
+        public Task<HttpResponseMessage> PostResourceRequestAsync(string docType, HttpContent content, CancellationToken cancellationToken = default)
         {
-            var baseUri = new UriBuilder($"{_baseUrl}/api/resource/{docType}");
-
-            // test with PostAsJsonAsync();
-            return await _httpClient.PostAsync(baseUri.ToString(), content);
+            var url = $"{_baseUrl}/api/resource/{docType}";
+            return _httpClient.PostAsync(url, content, cancellationToken);
         }
 
         /// <summary>
         /// Send a POST as JSON request to INSERT a new <paramref name="docType"/> resource.
         /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="docType"></param>
-        /// <param name="content"></param>
-        /// <returns></returns>
-        public async Task<HttpResponseMessage> PostAsJsonResourceRequestAsync<T>(string docType, T content)
+        public Task<HttpResponseMessage> PostAsJsonResourceRequestAsync<T>(string docType, T content, CancellationToken cancellationToken = default)
         {
-            var baseUri = new UriBuilder($"{_baseUrl}/api/resource/{docType}");
-
-            return await _httpClient.PostAsJsonAsync(baseUri.ToString(), content);
+            var url = $"{_baseUrl}/api/resource/{docType}";
+            return _httpClient.PostAsJsonAsync(url, content, ERPNextJsonSerializationSettings.Settings, cancellationToken);
         }
 
         /// <summary>
         /// Send a PUT as JSON request to UPDATE a <paramref name="docType"/> resource identified by its <paramref name="docName"/>
         /// </summary>
-        public async Task<HttpResponseMessage> PutAsJsonResourceRequestAsync<T>(string docType, string docName, T content)
+        public Task<HttpResponseMessage> PutAsJsonResourceRequestAsync<T>(string docType, string docName, T content, CancellationToken cancellationToken = default)
         {
-            var baseUri = new UriBuilder($"{_baseUrl}/api/resource/{docType}/{docName}");
-
-            return await _httpClient.PutAsJsonAsync(baseUri.ToString(), content);
+            var url = $"{_baseUrl}/api/resource/{docType}/{docName}";
+            return _httpClient.PutAsJsonAsync(url, content, ERPNextJsonSerializationSettings.Settings, cancellationToken);
         }
 
         /// <summary>
         /// Send a PUT request to UPDATE a <paramref name="docType"/> resource identified by its <paramref name="docName"/>
         /// </summary>
-        public async Task<HttpResponseMessage> PutResourceRequestAsync<T>(string docType, string docName, HttpContent content)
+        public Task<HttpResponseMessage> PutResourceRequestAsync<T>(string docType, string docName, HttpContent content, CancellationToken cancellationToken = default)
         {
-            var baseUri = new UriBuilder($"{_baseUrl}/api/resource/{docType}/{docName}");
-
-            return await _httpClient.PutAsync(baseUri.ToString(), content);
+            var url = $"{_baseUrl}/api/resource/{docType}/{docName}";
+            return _httpClient.PutAsync(url, content, cancellationToken);
         }
 
         /// <summary>
         /// Send a DELETE request to DELETE a <paramref name="docType"/> resource identified by its <paramref name="docName"/>
         /// </summary>
-        public async Task<HttpResponseMessage> DeleteResourceRequestAsync(string docType, string docName)
+        public Task<HttpResponseMessage> DeleteResourceRequestAsync(string docType, string docName, CancellationToken cancellationToken = default)
         {
-            var baseUri = new UriBuilder($"{_baseUrl}/api/resource/{docType}/{docName}");
-
-            return await _httpClient.DeleteAsync(baseUri.ToString());
+            var url = $"{_baseUrl}/api/resource/{docType}/{docName}";
+            return _httpClient.DeleteAsync(url, cancellationToken);
         }
 
         /// <summary>
         /// Send a GET request to an ERPNext whitelisted Method.
         /// </summary>
-        /// <param name="methodName">Name of the method to call (check in ERPNext its location)</param>
-        /// <param name="parameters"></param>
-        /// <returns></returns>
-        public async Task<HttpResponseMessage> MethodGetRequestAsync(string methodName, params (string key, string value)[] parameters)
-        {
-            return await MethodRequestAsync(methodName, string.Empty, string.Empty, false, null, parameters);
-        }
+        public Task<HttpResponseMessage> MethodGetRequestAsync(string methodName, params (string key, string value)[] parameters)
+            => MethodGetRequestAsync(methodName, default, parameters);
+
+        public Task<HttpResponseMessage> MethodGetRequestAsync(string methodName, CancellationToken cancellationToken, params (string key, string value)[] parameters)
+            => MethodRequestAsync(methodName, string.Empty, string.Empty, false, null, cancellationToken, parameters);
 
         /// <summary>
         /// Send a POST request to a ERPNext whitelisted Method.
         /// </summary>
-        /// <param name="methodName"></param>
-        /// <param name="content"></param>
-        /// <returns></returns>
-        public async Task<HttpResponseMessage> MethodPostRequestAsync(string methodName, HttpContent content)
-        {
-            return await MethodRequestAsync(methodName, string.Empty, string.Empty, true, content, null);
-        }
+        public Task<HttpResponseMessage> MethodPostRequestAsync(string methodName, HttpContent content, CancellationToken cancellationToken = default)
+            => MethodRequestAsync(methodName, string.Empty, string.Empty, true, content, cancellationToken, null);
 
-        public async Task<HttpResponseMessage> MethodPostAsJsonRequestAsync<TPayload>(string methodName, TPayload payload)
+        public Task<HttpResponseMessage> MethodPostAsJsonRequestAsync<TPayload>(string methodName, TPayload payload, CancellationToken cancellationToken = default)
         {
-            return await MethodRequestAsync(methodName, string.Empty, string.Empty, true,
-                new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json"));
+            var jsonContent = new StringContent(
+                JsonSerializer.Serialize(payload, ERPNextJsonSerializationSettings.Settings),
+                Encoding.UTF8,
+                "application/json");
+            return MethodRequestAsync(methodName, string.Empty, string.Empty, true, jsonContent, cancellationToken, null);
         }
 
         /// <summary>
         /// Send a POST request to a specific ERPNext Controller whitelisted Method.
         /// </summary>
-        /// <param name="docType"></param>
-        /// <param name="docName"></param>
-        /// <param name="methodName"></param>
-        /// <param name="content"></param>
-        /// <returns></returns>
-        public async Task<HttpResponseMessage> ControllerMethodPostRequestAsync(string docType, string docName, string methodName, HttpContent content)
-        {
-            return await MethodRequestAsync(methodName, docType, docName, true, content, null);
-        }
+        public Task<HttpResponseMessage> ControllerMethodPostRequestAsync(string docType, string docName, string methodName, HttpContent content, CancellationToken cancellationToken = default)
+            => MethodRequestAsync(methodName, docType, docName, true, content, cancellationToken, null);
 
         /// <summary>
         /// Send a GET request to a specific ERPNext Controller whitelisted Method.
         /// </summary>
-        /// <param name="docType"></param>
-        /// <param name="docName"></param>
-        /// <param name="methodName"></param>
-        /// <param name="parameters"></param>
-        /// <returns></returns>
-        public async Task<HttpResponseMessage> ControllerMethodGetRequestAsync(string docType, string docName, string methodName,
+        public Task<HttpResponseMessage> ControllerMethodGetRequestAsync(string docType, string docName, string methodName,
             params (string key, string value)[] parameters)
-        {
-            return await MethodRequestAsync(methodName, docType, docName, false, null, parameters);
-        }
+            => ControllerMethodGetRequestAsync(docType, docName, methodName, default, parameters);
 
-        private async Task<HttpResponseMessage> MethodRequestAsync(string methodName, string docType, string docName, bool isPostRequest, HttpContent content, params (string key, string value)[] parameters)
+        public Task<HttpResponseMessage> ControllerMethodGetRequestAsync(string docType, string docName, string methodName,
+            CancellationToken cancellationToken, params (string key, string value)[] parameters)
+            => MethodRequestAsync(methodName, docType, docName, false, null, cancellationToken, parameters);
+
+        private async Task<HttpResponseMessage> MethodRequestAsync(string methodName, string docType, string docName, bool isPostRequest, HttpContent content, CancellationToken cancellationToken, params (string key, string value)[] parameters)
         {
-            UriBuilder baseUri;
-            
+            string baseUrl;
+            var extraPairs = new List<(string key, string value)>();
+
             if (!string.IsNullOrEmpty(docType) && !string.IsNullOrEmpty(docName))
-                baseUri = new UriBuilder($"{_baseUrl}/api/resource/{docType}/{docName}?run_method={methodName}");
-            else
-                baseUri = new UriBuilder($"{_baseUrl}/api/method/{methodName}");
-
-            var query = HttpUtility.ParseQueryString(baseUri.Query);
-
-            if(parameters != null) foreach (var valueTuple in parameters)
             {
-                if(!string.IsNullOrEmpty(valueTuple.value))
-                    query[valueTuple.key] = valueTuple.value;
+                baseUrl = $"{_baseUrl}/api/resource/{docType}/{docName}";
+                extraPairs.Add(("run_method", methodName));
+            }
+            else
+            {
+                baseUrl = $"{_baseUrl}/api/method/{methodName}";
             }
 
-            baseUri.Query = HttpUtility.UrlDecode(query.ToString());
+            if (parameters != null)
+            {
+                foreach (var p in parameters)
+                {
+                    if (!string.IsNullOrEmpty(p.value))
+                        extraPairs.Add((p.key, p.value));
+                }
+            }
+
+            var url = $"{baseUrl}{BuildQueryString(extraPairs)}";
 
 #if DEBUG
-
             Debug.WriteLine($@"ERPNext Method Request
 Name: {methodName}
 DocType: {docType}
-Query String: {baseUri.Query?.ToString()}");
-
+URL: {url}");
 #endif
 
-            if (isPostRequest)
-            {
-                return await _httpClient.PostAsync(baseUri.ToString(), content);
-            }
+            return isPostRequest
+                ? await _httpClient.PostAsync(url, content, cancellationToken)
+                : await _httpClient.GetAsync(url, cancellationToken);
+        }
 
-            //var c = await (_httpClient.GetAsync(""));
-            //c.Content.ReadAsAsync<dynamic>()
+        private static string BuildQueryString(IEnumerable<(string key, string value)> pairs)
+        {
+            var nonEmpty = pairs.Where(p => !string.IsNullOrEmpty(p.value)).ToList();
+            if (nonEmpty.Count == 0) return string.Empty;
 
-            return await _httpClient.GetAsync(baseUri.ToString());
+            var encoded = nonEmpty
+                .Select(p => $"{Uri.EscapeDataString(p.key)}={Uri.EscapeDataString(p.value)}");
+            return "?" + string.Join("&", encoded);
         }
     }
 }

@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using Labotech.Frappe.Connector.Core;
 using Labotech.Frappe.Connector.Services;
+using Labotech.Frappe.Core;
 
 namespace Labotech.Frappe.Connector.Contracts
 {
@@ -123,7 +125,7 @@ namespace Labotech.Frappe.Connector.Contracts
         /// <returns></returns>
         FrappeQueryFluent<T> WithParent(string parentDocType);
 
-        Task<IEnumerable<T>> FetchAsync();
+        Task<IEnumerable<T>> FetchAsync(CancellationToken cancellationToken = default);
 
     }
 }
