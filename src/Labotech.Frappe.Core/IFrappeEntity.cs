@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Labotech.Frappe.Connector.Core
+namespace Labotech.Frappe.Core
 {
 
     /// <summary>

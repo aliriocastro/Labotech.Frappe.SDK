@@ -1,7 +1,7 @@
 ﻿using System.Globalization;
 using System.Text.Json;
 
-namespace Labotech.Frappe.Connector.Core.Common
+namespace Labotech.Frappe.Core.Common
 {
     public static class ERPNextJsonSerializationSettings
     {

@@ -1,5 +1,5 @@
 ﻿using System.Collections.Generic;
-using Labotech.Frappe.Connector.Core;
+using Labotech.Frappe.Core;
 
 namespace Labotech.Frappe.Connector.Dto
 {

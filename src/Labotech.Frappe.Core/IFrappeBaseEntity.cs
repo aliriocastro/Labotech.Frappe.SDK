@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace Labotech.Frappe.Connector.Core
+namespace Labotech.Frappe.Core
 {
     public interface IFrappeBaseEntity
     {

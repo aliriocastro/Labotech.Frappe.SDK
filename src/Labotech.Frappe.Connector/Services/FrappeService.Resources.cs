@@ -1,25 +1,24 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Text.Json;
-using System.Text.Json.Serialization;
+using System.Threading;
 using System.Threading.Tasks;
-using Labotech.Frappe.Connector.Core;
 using Labotech.Frappe.Connector.Extensions;
+using Labotech.Frappe.Core;
 
 namespace Labotech.Frappe.Connector.Services
 {
-    public partial class FrappeService
+    public sealed partial class FrappeService
     {
         // GET
-        public async Task<TEntity> GetResourceAsync<TEntity>(string docType, string docName) where TEntity : IFrappeBaseEntity
+        public async Task<TEntity> GetResourceAsync<TEntity>(string docType, string docName, CancellationToken cancellationToken = default) where TEntity : IFrappeBaseEntity
         {
-            var response = await _frappeClient.GetResourceRequestAsync(docType, docName);
-            await response.EnsureERPNextSuccessStatusCodeAsync();
+            var response = await _frappeClient.GetResourceRequestAsync(docType, docName, cancellationToken);
+            await response.EnsureERPNextSuccessStatusCodeAsync(cancellationToken);
 
-            var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
-            var result = FrappeEntityExtensions.FromJson<TEntity>(doc.RootElement.GetProperty("data").ToString());
-
-            return result;
+            using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+            return FrappeEntityExtensions.FromJson<TEntity>(doc.RootElement.GetProperty("data").ToString());
         }
+
         public async Task<IEnumerable<T>> GetResourcesAsync<T>(
             string docType,
             string fields = "[\"*\"]",
@@ -27,62 +26,57 @@ namespace Labotech.Frappe.Connector.Services
             string parent = null,
             string orderBy = null,
             int limitStart = 0,
-            int limitPageLength = 20) where T : IFrappeBaseEntity
+            int limitPageLength = 20,
+            CancellationToken cancellationToken = default) where T : IFrappeBaseEntity
         {
-            var response = await _frappeClient.GetResourcesRequestAsync(docType, fields, filters, parent, orderBy, limitStart, limitPageLength);
-            await response.EnsureERPNextSuccessStatusCodeAsync();
+            var response = await _frappeClient.GetResourcesRequestAsync(docType, fields, filters, parent, orderBy, limitStart, limitPageLength, cancellationToken);
+            await response.EnsureERPNextSuccessStatusCodeAsync(cancellationToken);
 
-            var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
-            var result = FrappeEntityExtensions.FromJson<IEnumerable<T>>(doc.RootElement.GetProperty("data").ToString());
-
-            return result;
+            using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+            return FrappeEntityExtensions.FromJson<IEnumerable<T>>(doc.RootElement.GetProperty("data").ToString());
         }
 
         // POST
-        public async Task<T> PostResourceAsync<T>(T entity) where T : IFrappeBaseEntity
+        public Task<T> PostResourceAsync<T>(T entity, CancellationToken cancellationToken = default) where T : IFrappeBaseEntity
         {
-            return await PostResourceAsync(entity, entity.Doctype);
+            return PostResourceAsync(entity, entity.Doctype, cancellationToken);
         }
 
-        public async Task<T> PostResourceAsync<T>(T entity, string docType)
+        public async Task<T> PostResourceAsync<T>(T entity, string docType, CancellationToken cancellationToken = default)
         {
-            var response = await _frappeClient.PostAsJsonResourceRequestAsync(docType, entity);
-            await response.EnsureERPNextSuccessStatusCodeAsync();
+            var response = await _frappeClient.PostAsJsonResourceRequestAsync(docType, entity, cancellationToken);
+            await response.EnsureERPNextSuccessStatusCodeAsync(cancellationToken);
 
-            var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
-            var result = FrappeEntityExtensions.FromJson<T>(doc.RootElement.GetProperty("data").ToString());
-
-            return result;
+            using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+            return FrappeEntityExtensions.FromJson<T>(doc.RootElement.GetProperty("data").ToString());
         }
 
         // PUT
-        public async Task<TEntity> PutResourceAsync<TEntity>(TEntity entity) where TEntity : IFrappeBaseEntity
+        public Task<TEntity> PutResourceAsync<TEntity>(TEntity entity, CancellationToken cancellationToken = default) where TEntity : IFrappeBaseEntity
         {
-            return await PutResourceAsync(entity, entity.Doctype, entity.Name);
+            return PutResourceAsync(entity, entity.Doctype, entity.Name, cancellationToken);
         }
 
-        public async Task<TEntity> PutResourceAsync<TEntity>(TEntity entity, string docType, string name)
+        public async Task<TEntity> PutResourceAsync<TEntity>(TEntity entity, string docType, string name, CancellationToken cancellationToken = default)
         {
-            var response = await _frappeClient.PutAsJsonResourceRequestAsync(docType, name, entity);
-            await response.EnsureERPNextSuccessStatusCodeAsync();
+            var response = await _frappeClient.PutAsJsonResourceRequestAsync(docType, name, entity, cancellationToken);
+            await response.EnsureERPNextSuccessStatusCodeAsync(cancellationToken);
 
-            var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
-            var result = FrappeEntityExtensions.FromJson<TEntity>(doc.RootElement.GetProperty("data").ToString());
-
-            return result;
+            using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+            return FrappeEntityExtensions.FromJson<TEntity>(doc.RootElement.GetProperty("data").ToString());
         }
 
 
         // DELETE
-        public async Task DeleteResourceAsync(string docType, string docName)
+        public async Task DeleteResourceAsync(string docType, string docName, CancellationToken cancellationToken = default)
         {
-            var response = await _frappeClient.DeleteResourceRequestAsync(docType, docName);
-            await response.EnsureERPNextSuccessStatusCodeAsync();
+            var response = await _frappeClient.DeleteResourceRequestAsync(docType, docName, cancellationToken);
+            await response.EnsureERPNextSuccessStatusCodeAsync(cancellationToken);
         }
 
-        public async Task DeleteResourceAsync<TEntity>(TEntity entity) where TEntity : IFrappeBaseEntity
+        public Task DeleteResourceAsync<TEntity>(TEntity entity, CancellationToken cancellationToken = default) where TEntity : IFrappeBaseEntity
         {
-            await DeleteResourceAsync(entity.Doctype, entity.Name);
+            return DeleteResourceAsync(entity.Doctype, entity.Name, cancellationToken);
         }
 
     }

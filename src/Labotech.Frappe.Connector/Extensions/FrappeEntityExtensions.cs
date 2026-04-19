@@ -1,8 +1,8 @@
 ﻿using System.Collections.Generic;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Labotech.Frappe.Connector.Core;
-using Labotech.Frappe.Connector.Core.Common;
+using Labotech.Frappe.Core;
+using Labotech.Frappe.Core.Common;
 
 namespace Labotech.Frappe.Connector.Extensions
 {

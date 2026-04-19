@@ -4,4 +4,7 @@
     <Project Path="src/Labotech.Frappe.Connector/Labotech.Frappe.Connector.csproj" />
     <Project Path="src/Labotech.Frappe.Data/Labotech.Frappe.Data.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Labotech.Frappe.Connector.Tests/Labotech.Frappe.Connector.Tests.csproj" />
+  </Folder>
 </Solution>

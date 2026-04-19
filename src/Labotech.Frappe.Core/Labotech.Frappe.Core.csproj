@@ -1,9 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
-    <PackageId>Labotech.Frappe.Connector.Core</PackageId>
-    <Product>Labotech.Frappe.Connector.Core</Product>
-    <AssemblyName>Labotech.Frappe.Connector.Core</AssemblyName>
+    <PackageId>Labotech.Frappe.Core</PackageId>
+    <Product>Labotech.Frappe.Core</Product>
+    <AssemblyName>Labotech.Frappe.Core</AssemblyName>
+    <Description>Core entity contracts and JSON serialization settings for the Labotech Frappe SDK.</Description>
+    <Copyright>MIT</Copyright>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="System.ComponentModel.Annotations" Version="5.0.0" />

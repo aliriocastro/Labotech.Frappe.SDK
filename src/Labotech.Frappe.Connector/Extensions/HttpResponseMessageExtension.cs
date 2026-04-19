@@ -1,16 +1,15 @@
-﻿using System.Net.Http;
+﻿using System;
+using System.Net.Http;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using Labotech.Frappe.Connector.Exceptions;
-using Microsoft.Extensions.Logging;
 
 namespace Labotech.Frappe.Connector.Extensions
 {
     public static class HttpResponseMessageExtension
     {
-        private static readonly ILogger<FrappeHttpRequestException> _logger;
-
-        public static async Task EnsureERPNextSuccessStatusCodeAsync(this HttpResponseMessage response)
+        public static async Task EnsureERPNextSuccessStatusCodeAsync(this HttpResponseMessage response, CancellationToken cancellationToken = default)
         {
             if (!response.IsSuccessStatusCode)
             {
@@ -23,26 +22,29 @@ namespace Labotech.Frappe.Connector.Extensions
             }
         }
 
+        private const string TracebackPattern = @"\<pre\>\s*(Traceback.*?)\<\/pre\>";
+        private static readonly TimeSpan TracebackRegexTimeout = TimeSpan.FromMilliseconds(200);
+
         static string ExtractERPNextTraceback(string htmlContent)
         {
-
             try
             {
-                const string pattern = @"\<pre\>\s*(Traceback.*)\<\/pre\>";
-                var matches = Regex.Matches(htmlContent, pattern, RegexOptions.Singleline);
-
-                if (matches.Count > 0)
+                var match = Regex.Match(htmlContent, TracebackPattern, RegexOptions.Singleline, TracebackRegexTimeout);
+                if (match.Success)
                 {
-                    return matches[0].Groups[1].Value;
+                    return match.Groups[1].Value;
                 }
             }
-            catch 
+            catch (RegexMatchTimeoutException)
+            {
+                return string.Empty;
+            }
+            catch
             {
                 return string.Empty;
             }
 
             return string.Empty;
-
         }
     }
 }
